@@ -67,3 +67,6 @@ And add `client.GetClient().WaitAll()` to wait for downloads to complete
 ## Contributor
 [Ali Torabi](https://github.com/aliworkshop)
 If this library helps you in anyway, show your love :heart: by putting a :star: on this project :v:
+
+# License
+Torrent is licensed under the MIT licence.
