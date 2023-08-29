@@ -26,6 +26,7 @@ func (t *Torrent) Initiate() {
 	}
 	t.downloadedPieces, t.remainPieces, t.partialPieces = 0, 0, 0
 	t.lastStats = t.GetStats()
+	t.tick = make(chan struct{})
 }
 
 // GetName returns torrent's name
@@ -78,17 +79,20 @@ func (t *Torrent) GetPartial() int {
 func (t *Torrent) Download() {
 	go func() {
 		for {
-			<-t.ticker.C
-			t.downloadedPieces, t.partialPieces = 0, 0
-			psrs := t.PieceStateRuns()
+			select {
+			case <-t.ticker.C:
+				t.downloadedPieces, t.partialPieces = 0, 0
+				psrs := t.PieceStateRuns()
 
-			for _, r := range psrs {
-				if r.Complete {
-					t.downloadedPieces += r.Length
+				for _, r := range psrs {
+					if r.Complete {
+						t.downloadedPieces += r.Length
+					}
+					if r.Partial {
+						t.partialPieces += r.Length
+					}
 				}
-				if r.Partial {
-					t.partialPieces += r.Length
-				}
+				t.tick <- struct{}{}
 			}
 		}
 	}()
@@ -99,20 +103,21 @@ func (t *Torrent) Download() {
 // you can generate another download log instead
 func (t *Torrent) DownloadLog() {
 	for !t.Completed() {
-		<-t.ticker.C
+		select {
+		case <-t.tick:
+			line := fmt.Sprintf(
+				"downloading %q: %s/%s, %d/%d pieces completed, (%d partial): %v/s\n",
+				t.GetName(),
+				humanize.Bytes(uint64(t.BytesCompleted())),
+				humanize.Bytes(uint64(t.GetTorrentTotalLen())),
+				t.GetDownloaded(),
+				t.GetPiecesNum(),
+				t.GetPartial(),
+				t.DownloadRate(),
+			)
 
-		line := fmt.Sprintf(
-			"downloading %q: %s/%s, %d/%d pieces completed, (%d partial): %v/s\n",
-			t.GetName(),
-			humanize.Bytes(uint64(t.BytesCompleted())),
-			humanize.Bytes(uint64(t.GetTorrentTotalLen())),
-			t.GetDownloaded(),
-			t.GetPiecesNum(),
-			t.GetPartial(),
-			t.DownloadRate(),
-		)
-
-		log.Println(line)
+			log.Println(line)
+		}
 	}
 }
 

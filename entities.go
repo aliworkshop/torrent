@@ -32,6 +32,7 @@ type Torrent struct {
 	remainPieces     int
 	partialPieces    int
 	lastStats        State
+	tick             chan struct{}
 }
 
 type File struct {
